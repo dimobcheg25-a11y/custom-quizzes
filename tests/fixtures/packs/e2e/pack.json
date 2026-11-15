@@ -1,0 +1,33 @@
+{
+  "title": "E2E тестовий пак",
+  "author": "tests",
+  "rounds": [
+    {
+      "name": "Перший раунд",
+      "themes": [
+        {
+          "name": "Загальне",
+          "questions": [
+            { "price": 100, "text": "Скільки буде два плюс два?", "answer": "Чотири", "comment": "Арифметика" },
+            { "price": 200, "type": "cat", "catTheme": "Кошенята", "catPrice": 300, "text": "Як звуть малюка кішки?", "answer": "Кошеня" },
+            { "price": 300, "type": "auction", "text": "Яка фігура на картинці?", "media": { "kind": "image", "file": "media/shape.svg" }, "answer": "Трикутник" }
+          ]
+        },
+        {
+          "name": "Музика",
+          "questions": [
+            { "price": 100, "text": "Що це звучить?", "media": { "kind": "audio", "file": "media/melody.wav" }, "answer": "Арпеджіо до мажор" }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Фінал",
+      "type": "final",
+      "themes": [
+        { "name": "Столиці", "questions": [{ "text": "Столиця України?", "answer": "Київ" }] },
+        { "name": "Річки", "questions": [{ "text": "Найдовша річка України?", "answer": "Дніпро" }] }
+      ]
+    }
+  ]
+}
