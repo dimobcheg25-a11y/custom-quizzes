@@ -12,6 +12,7 @@ import './styles.css';
 import { PLAYER_COLORS } from '../shared/protocol';
 import { GameScreen } from './game-screen';
 import { Home } from './home';
+import { EditorApp } from './editor';
 import { randomToken, storage, useGameConnection } from './net';
 import { playSfx, unlockAudio } from './sound';
 import { Avatar, Button, useAvatarPicker, useToasts } from './ui';
@@ -21,6 +22,7 @@ function App() {
   let m: RegExpMatchArray | null;
   if ((m = path.match(/^\/host\/([A-Za-z0-9]{4})\/?$/))) return <HostPage code={m[1].toUpperCase()} />;
   if ((m = path.match(/^\/r\/([A-Za-z0-9]{4})\/?$/))) return <PlayPage code={m[1].toUpperCase()} />;
+  if ((m = path.match(/^\/editor(?:\/(c[0-9a-f]{10}))?\/?$/))) return <EditorApp packId={m[1]} />;
   return <Home />;
 }
 

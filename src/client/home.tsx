@@ -10,6 +10,7 @@ interface PackInfo {
   rounds: number;
   questions: number;
   error?: string;
+  custom?: boolean;
 }
 
 export function Home() {
@@ -111,9 +112,14 @@ export function Home() {
         <section className="card">
           <div className="card-head">
             <h2>Створити гру</h2>
-            <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={busy}>
-              Завантажити пак (.zip)
-            </Button>
+            <div className="card-head__actions">
+              <a className="btn btn--ghost btn--sm" href="/editor">
+                Редактор паків
+              </a>
+              <Button size="sm" variant="ghost" onClick={() => fileRef.current?.click()} disabled={busy}>
+                Завантажити пак (.zip)
+              </Button>
+            </div>
             <input ref={fileRef} type="file" accept=".zip" hidden onChange={(e) => e.target.files?.[0] && upload(e.target.files[0])} />
           </div>
           <p className="muted small">Ви будете ведучим: бачите відповіді й оцінюєте гравців.</p>
@@ -129,7 +135,10 @@ export function Home() {
                   disabled={!!p.error}
                   onClick={() => setSelected(p.id)}
                 >
-                  <span className="pack__title">{p.title}</span>
+                  <span className="pack__title">
+                    {p.title}
+                    {p.custom && <span className="badge pack__mine">мій</span>}
+                  </span>
                   {p.error ? (
                     <span className="pack__error">Пак з помилкою: {p.error}</span>
                   ) : (

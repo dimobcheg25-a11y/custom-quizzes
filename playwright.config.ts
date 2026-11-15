@@ -15,10 +15,10 @@ export default defineConfig({
     screenshot: 'only-on-failure',
   },
   webServer: {
-    command: 'npm run build && npx tsx src/server/index.ts',
+    command: `node -e "require('fs').rmSync('.e2e-data',{recursive:true,force:true})" && npm run build && npx tsx src/server/index.ts`,
     port: PORT,
     reuseExistingServer: false,
-    env: { PORT: String(PORT), PACKS_DIR: 'tests/fixtures/packs' },
+    env: { PORT: String(PORT), PACKS_DIR: 'tests/fixtures/packs', DATA_DIR: '.e2e-data' },
     timeout: 120_000,
   },
 });

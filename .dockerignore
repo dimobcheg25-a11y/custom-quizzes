@@ -6,3 +6,5 @@ playwright-report
 packs/*.zip
 .git
 .env
+data
+.e2e-data

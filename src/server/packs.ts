@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import AdmZip from 'adm-zip';
 import { PackSchema, packMediaFiles, type Pack } from '../shared/pack';
+import { getCustom, isCustomId, listCustom } from './custom';
 
 export const PACKS_DIR = path.resolve(process.env.PACKS_DIR ?? 'packs');
 fs.mkdirSync(PACKS_DIR, { recursive: true });
@@ -16,6 +17,8 @@ export interface PackInfo {
   rounds: number;
   questions: number;
   error?: string;
+  /** Made in the site editor. */
+  custom?: boolean;
 }
 
 interface Cached {
@@ -26,8 +29,16 @@ interface Cached {
 const cache = new Map<string, Cached>();
 
 export function loadPack(id: string): Pack {
+  if (isCustomId(id)) {
+    const e = getCustom(id);
+    if (!e) throw new Error('Пак не знайдено');
+    if (!e.pack) throw new Error('Пак ще не заповнено до кінця — відкрийте його в редакторі');
+    return e.pack;
+  }
   return loadCached(id).pack;
 }
+
+const countQuestions = (p: Pack) => p.rounds.reduce((n, r) => n + r.themes.reduce((m, t) => m + t.questions.length, 0), 0);
 
 function loadCached(id: string): Cached {
   if (!ID_RE.test(id)) throw new Error('Невірний ідентифікатор паку');
@@ -55,13 +66,17 @@ export function listPacks(): PackInfo[] {
         author: p.author,
         description: p.description,
         rounds: p.rounds.length,
-        questions: p.rounds.reduce((n, r) => n + r.themes.reduce((m, t) => m + t.questions.length, 0), 0),
+        questions: countQuestions(p),
       });
     } catch (e) {
       out.push({ id: d.name, title: d.name, rounds: 0, questions: 0, error: (e as Error).message.slice(0, 300) });
     }
   }
-  return out.sort((a, b) => a.title.localeCompare(b.title, 'uk'));
+  out.sort((a, b) => a.title.localeCompare(b.title, 'uk'));
+  const custom = listCustom()
+    .filter((e) => e.pack)
+    .map((e) => ({ id: e.id, title: e.pack!.title, author: e.pack!.author, description: e.pack!.description, rounds: e.pack!.rounds.length, questions: countQuestions(e.pack!), custom: true }));
+  return [...custom, ...out];
 }
 
 /** Absolute path of a media file, only if the pack references it (pack.json and other files are never served). */

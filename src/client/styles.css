@@ -1131,8 +1131,10 @@ button.avatar-btn:focus-visible::after {
   flex: 0 1 auto;
   min-height: 0;
   display: grid;
-  grid-template-columns: minmax(150px, 1.7fr) repeat(var(--cols), minmax(0, 1fr));
-  grid-auto-rows: minmax(60px, 112px);
+  /* themes are columns: each theme emits its header, then one cell per price, filling a column */
+  grid-auto-flow: column;
+  grid-template-columns: repeat(var(--themes), minmax(0, 1fr));
+  grid-template-rows: minmax(64px, auto) repeat(var(--rows), minmax(56px, 100px));
   align-content: center;
   gap: 6px;
   padding: 6px;
@@ -1146,16 +1148,19 @@ button.avatar-btn:focus-visible::after {
 .board-theme {
   display: flex;
   align-items: center;
-  padding: 8px 14px 8px 16px;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 8px;
   border-radius: 6px;
-  background: linear-gradient(90deg, #1d2fa6, #0f1a6c);
+  background: linear-gradient(#1d2fa6, #0f1a6c);
   border: 1px solid #050a3a;
-  border-left: 5px solid var(--gold);
+  border-bottom: 4px solid var(--gold);
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.22), inset 0 -8px 14px rgba(0, 0, 40, 0.4);
   font-family: var(--font-display);
   font-weight: 600;
-  font-size: clamp(15px, 1.5vw, 21px);
+  font-size: clamp(14px, 1.35vw, 20px);
   letter-spacing: 0.03em;
+  hyphens: auto;
   text-transform: uppercase;
   line-height: 1.15;
   text-shadow: 0 2px 0 rgba(0, 0, 40, 0.65);
@@ -2722,16 +2727,15 @@ button.avatar-btn:focus-visible::after {
       0 18px 40px rgba(0, 0, 10, 0.6);
   }
   .board {
-    grid-template-columns: minmax(96px, 1.5fr) repeat(var(--cols), minmax(0, 1fr));
-    grid-auto-rows: minmax(54px, auto);
+    grid-template-rows: minmax(58px, auto) repeat(var(--rows), minmax(50px, auto));
     gap: 4px;
     padding: 4px;
   }
   .board-theme {
-    font-size: 14px;
-    padding: 6px 6px 6px 8px;
-    border-left-width: 4px;
-    hyphens: auto;
+    font-size: 11px;
+    letter-spacing: 0.01em;
+    padding: 6px 3px;
+    border-bottom-width: 3px;
   }
   .board-cell {
     font-size: 17px;
@@ -2764,5 +2768,323 @@ button.avatar-btn:focus-visible::after {
   }
   .toasts {
     bottom: 140px;
+  }
+}
+
+/* ───────── pack editor ───────── */
+
+textarea,
+select,
+input[type='password'] {
+  font: inherit;
+  color: inherit;
+  background: var(--led-bg);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+  min-width: 0;
+  box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.6);
+}
+textarea {
+  resize: vertical;
+  line-height: 1.4;
+}
+textarea:focus,
+select:focus,
+input[type='password']:focus {
+  border-color: var(--gold);
+  outline: none;
+}
+.field textarea,
+.field select {
+  font-family: var(--font);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.card-head__actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.pack__mine {
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.editor {
+  width: min(980px, 100%);
+  margin: 0 auto;
+  padding: 20px 16px 80px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.editor-top {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  flex-wrap: wrap;
+  padding: 12px 0;
+  background: linear-gradient(var(--bg) 70%, transparent);
+}
+.editor-top__title {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(22px, 3vw, 30px);
+  color: var(--gold);
+  text-transform: uppercase;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-save {
+  font-family: var(--font-display);
+  font-size: 13px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.editor-save--saved {
+  color: var(--good);
+}
+.editor-save--error {
+  color: var(--bad);
+}
+.editor-note {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--accent-soft);
+  color: var(--gold-hi);
+  font-size: 14px;
+}
+.editor-card {
+  background: linear-gradient(#141f7c, #0c1452);
+  border: 1px solid #3247c8;
+  border-radius: var(--radius);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  box-shadow: var(--panel-shadow);
+}
+.editor-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+.editor-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.editor-row--end {
+  justify-content: flex-end;
+}
+.field--grow {
+  flex: 1;
+  min-width: 200px;
+}
+.editor-actions {
+  display: flex;
+  gap: 6px;
+  padding-bottom: 4px;
+}
+.editor-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+.editor-tab {
+  padding: 9px 16px;
+  border-radius: var(--radius-sm) var(--radius-sm) 0 0;
+  border: 1px solid var(--line);
+  border-bottom: 0;
+  background: var(--surface);
+  color: var(--text-2);
+  font-family: var(--font-display);
+  font-size: 15px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.editor-tab.is-on {
+  background: var(--gold);
+  border-color: var(--gold);
+  color: var(--accent-ink);
+}
+.editor-tab--add {
+  background: none;
+  border-style: dashed;
+  color: var(--muted);
+}
+.editor-theme {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 14px;
+  border-radius: var(--radius-sm);
+  background: rgba(3, 5, 28, 0.45);
+  border: 1px solid rgba(80, 105, 230, 0.4);
+}
+.editor-questions {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.editor-q {
+  border-radius: var(--radius-sm);
+  background: var(--surface);
+  border: 1px solid transparent;
+}
+.editor-q.is-open {
+  border-color: var(--gold);
+}
+.editor-q__head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: none;
+  border: 0;
+  text-align: left;
+}
+.editor-q__price {
+  flex: none;
+  min-width: 52px;
+  font-family: var(--font-num);
+  font-size: 18px;
+  color: var(--gold);
+}
+.editor-q__text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.editor-q__answer {
+  flex: none;
+  max-width: 30%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--good);
+  font-weight: 600;
+}
+.editor-q__answer.is-missing {
+  color: var(--bad);
+  font-weight: 400;
+}
+.editor-q__form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 4px 12px 14px;
+}
+.media-field__body {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  align-items: flex-start;
+  text-transform: none;
+  letter-spacing: 0;
+}
+.media-field__preview {
+  max-width: min(420px, 100%);
+  max-height: 260px;
+  border-radius: var(--radius-sm);
+  background: #000;
+}
+.media-field audio {
+  width: min(420px, 100%);
+}
+.media-field__trim {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.time-input {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: var(--font);
+  font-size: 14px;
+}
+.time-input input {
+  width: 90px;
+}
+.editor-issues {
+  border-color: var(--bad);
+}
+.editor-issues.is-ok {
+  border-color: var(--good);
+  color: var(--good);
+}
+.editor-issues ul {
+  margin: 0;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--text-2);
+}
+.editor-issues p {
+  margin: 0;
+}
+.editor-packs {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.editor-pack {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 14px 16px;
+  border-radius: var(--radius);
+  background: linear-gradient(#141f7c, #0c1452);
+  border: 1px solid #3247c8;
+}
+.editor-pack__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  color: inherit;
+  text-decoration: none;
+}
+.editor-pack__main b {
+  font-family: var(--font-display);
+  font-size: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+@media (max-width: 600px) {
+  .editor-q__answer {
+    display: none;
+  }
+  .editor-top__title {
+    order: -1;
+    flex-basis: 100%;
+  }
+  .editor-top .btn {
+    margin-left: auto;
   }
 }

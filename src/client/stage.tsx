@@ -104,10 +104,10 @@ function Board({ s, send }: StageProps) {
       </div>
       <div className="board-frame">
         <Bulbs />
-        <div className="board" style={{ ['--cols' as string]: cols }} role="grid">
+        <div className="board" style={{ ['--rows' as string]: cols, ['--themes' as string]: b.themes.length }} role="grid">
         {b.themes.map((t, ti) => (
           <div className="board-row" role="row" key={ti}>
-            <div className="board-theme" role="rowheader">
+            <div className="board-theme" role="columnheader">
               {t.name}
             </div>
             {Array.from({ length: cols }, (_, qi) => {
@@ -324,6 +324,8 @@ function QuestionBody({ q, s, send }: { q: QuestionView; s: GameView; send: Stag
           key={`${q.media.url}#${q.mediaNonce}`}
           url={q.media.url}
           kind={q.media.kind}
+          start={q.media.start}
+          end={q.media.end}
           onEnded={isHost(s) ? () => send({ t: 'media_ended' }) : undefined}
           paused={
             (s.phase === 'reveal' && !!q.answerMedia) ||
@@ -392,7 +394,7 @@ function Reveal({ q, s }: { q: QuestionView; s: GameView }) {
     <div className="reveal">
       <p className="eyebrow">Правильна відповідь</p>
       <p className="reveal-answer">{q.answer}</p>
-      {q.answerMedia && <MediaView key={q.answerMedia.url} url={q.answerMedia.url} kind={q.answerMedia.kind} compact />}
+      {q.answerMedia && <MediaView key={q.answerMedia.url} url={q.answerMedia.url} kind={q.answerMedia.kind} start={q.answerMedia.start} end={q.answerMedia.end} compact />}
       {q.comment && <p className="reveal-comment">{q.comment}</p>}
       {s.results.length > 0 && (
         <ul className="results">
@@ -415,21 +417,30 @@ export function MediaView({
   onEnded,
   compact,
   paused,
+  start,
+  end,
+  controls,
 }: {
   url: string;
   kind: 'image' | 'audio' | 'video';
   onEnded?: () => void;
   compact?: boolean;
   paused?: boolean;
+  /** Play only the [start, end] seconds of the file. */
+  start?: number;
+  end?: number;
+  /** Show native controls (editor preview). */
+  controls?: boolean;
 }) {
   const ref = useRef<HTMLMediaElement>(null);
   const [blocked, setBlocked] = useState(false);
   const [playing, setPlaying] = useState(false);
   const [failed, setFailed] = useState(false);
+  const reachedEnd = useRef(false);
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || paused || el.ended) return;
+    if (!el || paused || el.ended || reachedEnd.current || controls) return;
     el.play().then(
       () => setBlocked(false),
       (e: DOMException) => setBlocked(e?.name === 'NotAllowedError'),
@@ -450,14 +461,35 @@ export function MediaView({
     onPause: () => setPlaying(false),
     onEnded: () => {
       setPlaying(false);
-      onEnded?.();
+      if (!reachedEnd.current) onEnded?.();
+      reachedEnd.current = true;
     },
+    onLoadedMetadata: (e: React.SyntheticEvent<HTMLMediaElement>) => {
+      if (start) e.currentTarget.currentTime = start;
+    },
+    onTimeUpdate: (e: React.SyntheticEvent<HTMLMediaElement>) => {
+      const el = e.currentTarget;
+      if (end !== undefined && !reachedEnd.current && el.currentTime >= end) {
+        reachedEnd.current = true;
+        el.pause();
+        onEnded?.();
+      }
+    },
+    controls,
     onError: () => {
       setFailed(true);
       onEnded?.(); // let the host's auto-open proceed
     },
   };
-  const play = () => ref.current?.play().then(() => setBlocked(false), () => setBlocked(true));
+  const play = () => {
+    const el = ref.current;
+    if (!el) return;
+    if (reachedEnd.current) {
+      reachedEnd.current = false;
+      el.currentTime = start ?? 0;
+    }
+    el.play().then(() => setBlocked(false), () => setBlocked(true));
+  };
 
   return (
     <div className={`media media--${kind} ${compact ? 'is-compact' : ''}`}>

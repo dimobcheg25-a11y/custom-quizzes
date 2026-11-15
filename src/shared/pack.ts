@@ -7,7 +7,11 @@ export const MediaSchema = z.object({
     .string()
     .min(1)
     .refine((f) => !f.includes('..') && !f.startsWith('/') && !/^[a-z]+:/i.test(f), 'file must be a relative path inside the pack'),
-});
+  /** Audio/video only: play from this second… */
+  start: z.number().nonnegative().optional(),
+  /** …and stop at this second (counts as the end of the media). */
+  end: z.number().positive().optional(),
+}).refine((m) => m.start === undefined || m.end === undefined || m.end > m.start, { message: 'end must be after start', path: ['end'] });
 
 export const QuestionSchema = z
   .object({

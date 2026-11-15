@@ -8,6 +8,7 @@ Multiplayer "Своя гра"-style quiz (board of themes × prices, buzzer, cat
 - `src/server/game.ts` — the whole game as one state machine (`Game`), no I/O, injectable `Scheduler` for timers. All rules live here.
 - `src/server/rooms.ts` — WebSocket clients ↔ `Game`; sends each client its own view (host sees answers, players do not).
 - `src/server/packs.ts` — loads `packs/<id>/pack.json`, serves only media files referenced by the pack, imports zip uploads.
+- `src/server/custom.ts` + `store.ts` — packs made in the site editor (`/editor`, `src/client/editor.tsx`). Stored in an S3-compatible bucket when `S3_BUCKET` (+ `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`) is set, else in `DATA_DIR` (default `./data`). Editor password: `EDITOR_KEY`, falls back to `UPLOAD_KEY`.
 - `src/server/index.ts` — express + ws, REST: `/api/packs`, `/api/packs/upload`, `/api/rooms`; media at `/packs/<id>/<file>`.
 - `src/client/` — React (Vite). `stage.tsx` renders the main area per phase, `game-screen.tsx` the layout, scoreboard, player buzzer bar and host panel. Plain CSS with tokens in `styles.css`.
 - `tools/` — pack tooling: `pack-check`, `pack-zip`, `media-clip` (yt-dlp + ffmpeg), `media-image`, `media-generate` (Gemini image API, key `GEMINI_API_KEY` in env or `.env`).
