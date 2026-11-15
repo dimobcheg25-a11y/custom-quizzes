@@ -54,7 +54,7 @@ function Lobby({ s }: StageProps) {
       <div className="lobby-players">
         {s.players.map((p) => (
           <div key={p.id} className={`lobby-player ${p.connected ? '' : 'is-offline'}`}>
-            <Avatar p={p} size={44} />
+            <Avatar p={p} size={120} />
             <span>{p.name}</span>
           </div>
         ))}
@@ -85,7 +85,7 @@ function Board({ s, send }: StageProps) {
               <>Ваш вибір — оберіть питання</>
             ) : (
               <>
-                <Avatar p={chooser} size={22} /> Обирає {chooser.name}
+                <Avatar p={chooser} size={36} /> Обирає {chooser.name}
                 {isHost(s) && <span className="muted"> · ви теж можете обрати</span>}
               </>
             )
@@ -150,7 +150,7 @@ function Cat({ s, send }: StageProps) {
               .filter((p) => p.id !== c.giverId)
               .map((p) => (
                 <button key={p.id} className="choice" onClick={() => send({ t: 'cat_give', to: p.id })}>
-                  <Avatar p={p} size={36} />
+                  <Avatar p={p} size={64} />
                   <span>{p.name}</span>
                   <span className="muted">{formatScore(p.score)}</span>
                 </button>
@@ -184,7 +184,7 @@ function Auction({ s, send }: StageProps) {
           const passed = a.passed.includes(p.id);
           return (
             <li key={p.id} className={`auction-row ${a.turnId === p.id ? 'is-turn' : ''} ${passed ? 'is-passed' : ''}`}>
-              <Avatar p={p} size={28} />
+              <Avatar p={p} size={48} />
               <span className="auction-name">{p.name}</span>
               <span className="auction-state">
                 {leader ? (
@@ -253,7 +253,7 @@ function QuestionStage({ s, send, serverNow }: StageProps) {
         {kind && <span className="badge badge--accent">{kind}</span>}
         {solo && (
           <span className="question-solo">
-            <Avatar p={solo} size={20} /> відповідає {solo.name}
+            <Avatar p={solo} size={36} /> відповідає {solo.name}
           </span>
         )}
       </div>
@@ -399,7 +399,7 @@ function Standings({ s }: { s: GameView }) {
       {sorted.map((p, i) => (
         <li key={p.id} className={i === 0 ? 'is-first' : ''}>
           <span className="standings-pos">{i + 1}</span>
-          <Avatar p={p} size={36} />
+          <Avatar p={p} size={64} />
           <span className="standings-name">{p.name}</span>
           <span className="standings-score">{formatScore(p.score)}</span>
         </li>
@@ -469,7 +469,7 @@ function FinalParticipants({ s, mark }: { s: GameView; mark?: (id: string) => st
         if (!p) return null;
         return (
           <span key={id} className="chip">
-            <Avatar p={p} size={20} /> {p.name} {mark?.(id) && <b>{mark(id)}</b>}
+            <Avatar p={p} size={32} /> {p.name} {mark?.(id) && <b>{mark(id)}</b>}
           </span>
         );
       })}

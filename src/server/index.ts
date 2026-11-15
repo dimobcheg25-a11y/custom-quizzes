@@ -66,7 +66,7 @@ if (fs.existsSync(CLIENT_DIR)) {
 }
 
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 64 * 1024 });
+const wss = new WebSocketServer({ server, path: '/ws', maxPayload: 128 * 1024 });
 
 wss.on('connection', (ws: WebSocket & { alive?: boolean }, req) => {
   ws.alive = true;

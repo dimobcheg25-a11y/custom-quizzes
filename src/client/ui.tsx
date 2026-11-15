@@ -24,7 +24,7 @@ export function Avatar({ p, size = 32 }: { p: Pick<PlayerView, 'name' | 'color' 
 }
 
 /** Center-crops and shrinks a picked image to a small square JPEG data URL. */
-export async function imageToAvatar(file: File, size = 160): Promise<string> {
+export async function imageToAvatar(file: File, size = 320): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('Це не картинка');
   const bmp = await createImageBitmap(file);
   const side = Math.min(bmp.width, bmp.height);
@@ -33,7 +33,12 @@ export async function imageToAvatar(file: File, size = 160): Promise<string> {
   const ctx = canvas.getContext('2d')!;
   ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
   bmp.close();
-  return canvas.toDataURL('image/jpeg', 0.85);
+  // Keep it well under the server limit (60 KB of base64 is ~45 KB of JPEG).
+  for (const q of [0.85, 0.75, 0.65, 0.5]) {
+    const url = canvas.toDataURL('image/jpeg', q);
+    if (url.length < 60_000 || q === 0.5) return url;
+  }
+  return canvas.toDataURL('image/jpeg', 0.5);
 }
 
 /** Hidden file input + trigger; calls onPick with a ready avatar data URL. */

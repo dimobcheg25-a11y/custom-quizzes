@@ -93,10 +93,10 @@ function Scoreboard({ s, send, onError }: { s: GameView; send: (m: ClientMessage
             <li key={p.id} className={`score-row ${answering ? 'is-answering' : ''} ${p.connected ? '' : 'is-offline'} ${p.id === s.meId ? 'is-me' : ''}`}>
               {p.id === s.meId ? (
                 <button className="avatar-btn" onClick={picker.open} title="Змінити аватарку" aria-label="Змінити аватарку">
-                  <Avatar p={p} size={34} />
+                  <Avatar p={p} size={60} />
                 </button>
               ) : (
-                <Avatar p={p} size={34} />
+                <Avatar p={p} size={60} />
               )}
               <div className="score-row__main">
                 <span className="score-row__name">

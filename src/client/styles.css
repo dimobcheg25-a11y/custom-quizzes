@@ -308,6 +308,23 @@ kbd {
   object-fit: cover;
   display: block;
 }
+/* Hover a photo in the player list to see it up close. */
+.score-row .avatar--photo,
+.auction-row .avatar--photo,
+.standings .avatar--photo {
+  position: relative;
+  transform-origin: left center;
+  transition: transform 0.18s ease-out;
+}
+@media (hover: hover) {
+  .score-row .avatar--photo:hover,
+  .auction-row .avatar--photo:hover,
+  .standings .avatar--photo:hover {
+    transform: scale(2.6);
+    z-index: 20;
+    box-shadow: 0 0 0 1px var(--ring), 0 12px 32px rgba(0, 0, 0, 0.6);
+  }
+}
 button.avatar-btn {
   position: relative;
   padding: 0;

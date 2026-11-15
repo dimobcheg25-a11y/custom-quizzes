@@ -164,7 +164,7 @@ function JoinForm({ code, packTitle, error, onJoin }: { code: string; packTitle?
         <div className="field">
           <span>Аватарка</span>
           <div className="photo-pick">
-            <Avatar p={{ name: name.trim() || '?', color, avatar: photo }} size={56} />
+            <Avatar p={{ name: name.trim() || '?', color, avatar: photo }} size={112} />
             <div className="photo-pick__actions">
               <Button type="button" size="sm" onClick={picker.open}>
                 {photo ? 'Змінити фото' : 'Завантажити фото'}

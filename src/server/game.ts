@@ -92,7 +92,7 @@ interface FinalState {
 }
 
 const MAX_PLAYERS = 12;
-const MAX_AVATAR_BYTES = 40_000;
+const MAX_AVATAR_BYTES = 80_000;
 
 export class Game {
   settings: Settings = { ...DEFAULT_SETTINGS };

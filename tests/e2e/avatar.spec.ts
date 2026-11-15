@@ -22,7 +22,7 @@ test('player uploads a photo on join; everyone sees it; it is remembered for the
   const hostImg = host.locator('.lobby-player .avatar--photo img');
   await expect(hostImg).toHaveCount(1);
   await expect(hostImg).toHaveAttribute('src', /\/api\/rooms\/[A-Z0-9]{4}\/avatars\/p\d+\?v=1/);
-  expect(await hostImg.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(160);
+  expect(await hostImg.evaluate((el: HTMLImageElement) => el.complete && el.naturalWidth)).toBe(320);
 
   // The photo is remembered: a new room gets it automatically.
   await host.goto('/');
