@@ -23,6 +23,11 @@ export function Avatar({ p, size = 32 }: { p: Pick<PlayerView, 'name' | 'color' 
   );
 }
 
+/** Marquee light bulbs around a frame; the parent must be `position: relative`. Pure decoration. */
+export function Bulbs() {
+  return <span className="bulbs" aria-hidden />;
+}
+
 /** Center-crops and shrinks a picked image to a small square JPEG data URL. */
 export async function imageToAvatar(file: File, size = 320): Promise<string> {
   if (!file.type.startsWith('image/')) throw new Error('Це не картинка');

@@ -24,7 +24,9 @@
     "zod": "^3.25.76"
   },
   "devDependencies": {
-    "@fontsource/golos-text": "^5.3.0",
+    "@fontsource/exo-2": "^5.3.0",
+    "@fontsource/oswald": "^5.3.0",
+    "@fontsource/russo-one": "^5.3.0",
     "@playwright/test": "1.49",
     "@types/adm-zip": "^0.5.8",
     "@types/express": "^4.17.25",

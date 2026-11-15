@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { storage } from './net';
-import { Button } from './ui';
+import { Bulbs, Button } from './ui';
 
 interface PackInfo {
   id: string;
@@ -76,8 +76,11 @@ export function Home() {
   return (
     <div className="home">
       <header className="home-head">
-        <span className="logo logo--lg">Квізи від Дімона</span>
-        <p className="muted">Квіз для друзів онлайн: табло з темами, кнопка, кіт у мішку, аукціон і фінал.</p>
+        <div className="marquee-sign">
+          <Bulbs />
+          <span className="logo logo--lg">Квізи від Дімона</span>
+        </div>
+        <p className="home-tagline">Квіз для друзів онлайн: табло з темами, кнопка, кіт у мішку, аукціон і фінал.</p>
       </header>
 
       <div className="home-grid">

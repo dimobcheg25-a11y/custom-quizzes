@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ClientMessage, GameView, QuestionView } from '../shared/protocol';
-import { Avatar, Button, Countdown, findPlayer, formatScore, playerName, TimeBar } from './ui';
+import { Avatar, Bulbs, Button, Countdown, findPlayer, formatScore, playerName, TimeBar } from './ui';
 import { useTicker } from './net';
 import { playSfx } from './sound';
 
@@ -47,7 +47,11 @@ function Lobby({ s }: StageProps) {
   return (
     <div className="center-stage">
       <p className="eyebrow">Код кімнати</p>
-      <div className="room-code">{s.code}</div>
+      <div className="room-code">
+        {[...s.code].map((ch, i) => (
+          <span key={i}>{ch}</span>
+        ))}
+      </div>
       <h1 className="stage-title">{s.packTitle}</h1>
       <p className="muted">
         {s.players.length === 0 ? 'Поки що нікого немає.' : `Гравців: ${s.players.length}.`}{' '}
@@ -57,7 +61,7 @@ function Lobby({ s }: StageProps) {
         {s.players.map((p) => (
           <div key={p.id} className={`lobby-player ${p.connected ? '' : 'is-offline'}`}>
             <Avatar p={p} size={120} />
-            <span>{p.name}</span>
+            <span className="lobby-player__name">{p.name}</span>
           </div>
         ))}
       </div>
@@ -72,8 +76,10 @@ function Board({ s, send }: StageProps) {
   const myPick = isHost(s) || (s.meId !== undefined && s.meId === s.chooserId);
   const cols = Math.max(...b.themes.map((t) => t.questions.length));
   const chooser = findPlayer(s, s.chooserId);
+  // Nothing played yet = the round has just started: light the cells up one by one.
+  const fresh = b.themes.every((t) => t.questions.every((q) => !q.played));
   return (
-    <div className="board-wrap">
+    <div className={`board-wrap ${fresh ? 'board--fresh' : ''}`}>
       <div className="board-head">
         <div>
           <p className="eyebrow">
@@ -96,7 +102,9 @@ function Board({ s, send }: StageProps) {
           )}
         </div>
       </div>
-      <div className="board" style={{ ['--cols' as string]: cols }} role="grid">
+      <div className="board-frame">
+        <Bulbs />
+        <div className="board" style={{ ['--cols' as string]: cols }} role="grid">
         {b.themes.map((t, ti) => (
           <div className="board-row" role="row" key={ti}>
             <div className="board-theme" role="rowheader">
@@ -110,6 +118,7 @@ function Board({ s, send }: StageProps) {
                   key={qi}
                   role="gridcell"
                   className={`board-cell ${q.played ? 'is-played' : ''}`}
+                  style={{ ['--i' as string]: ti + qi }}
                   disabled={q.played || !myPick}
                   onClick={() => send({ t: 'pick', theme: ti, question: qi })}
                   aria-label={`${t.name}, ${q.price}`}
@@ -120,6 +129,7 @@ function Board({ s, send }: StageProps) {
             })}
           </div>
         ))}
+        </div>
       </div>
     </div>
   );
@@ -247,19 +257,29 @@ function QuestionStage({ s, send, serverNow }: StageProps) {
   const b = s.buzz;
   const kind = q.kind === 'cat' ? 'Кіт у мішку' : q.kind === 'auction' ? 'Аукціон' : null;
   const solo = b?.solo ? findPlayer(s, b.answeringId) : undefined;
+  const answering = s.phase === 'question' && b?.stage === 'answering' ? findPlayer(s, b.answeringId) : undefined;
   return (
     <div className="question-stage">
       <div className="question-head">
         <span className="question-theme">{q.themeName}</span>
         <span className="question-price">{formatScore(q.price)}</span>
         {kind && <span className="badge badge--accent">{kind}</span>}
-        {solo && (
+        {solo && !answering && (
           <span className="question-solo">
             <Avatar p={solo} size={36} /> відповідає {solo.name}
           </span>
         )}
       </div>
       <QuestionBody q={q} s={s} send={send} />
+      {answering && (
+        <div className="lower-third" key={answering.id}>
+          <Avatar p={answering} size={64} />
+          <div className="lower-third__text">
+            <span className="lower-third__name">{answering.name}</span>
+            <span className="lower-third__role">{answering.id === s.meId ? 'ваша відповідь' : 'відповідає'}</span>
+          </div>
+        </div>
+      )}
       {s.phase === 'question' && b && (
         <div className="question-timer">
           {b.stage === 'reading' && b.autoOpenAt && (
@@ -348,7 +368,8 @@ function Roulette({ s, r, serverNow }: { s: GameView; r: NonNullable<GameView['b
   }, [k]);
 
   return (
-    <div className="roulette" role="status" aria-live="polite">
+    <div className={`roulette ${landed ? 'is-landed' : ''}`} role="status" aria-live="polite">
+      <div className="roulette__beams" aria-hidden />
       <p className="roulette__title">{landed ? `Відповідає ${playerName(s, r.winnerId)}!` : 'Хто відповідатиме?'}</p>
       <div className="roulette__row">
         {r.candidates.map((id, i) => {
