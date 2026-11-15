@@ -105,6 +105,6 @@ server.listen(PORT, () => {
   const lan = Object.values(os.networkInterfaces())
     .flat()
     .find((i) => i && i.family === 'IPv4' && !i.internal)?.address;
-  console.log(`Своя гра: http://localhost:${PORT}${lan ? `  (у мережі: http://${lan}:${PORT})` : ''}`);
+  console.log(`Квізи від Дімона: http://localhost:${PORT}${lan ? `  (у мережі: http://${lan}:${PORT})` : ''}`);
   if (!fs.existsSync(CLIENT_DIR)) console.log('Клієнт не зібрано: для розробки запустіть `npm run dev` і відкрийте http://localhost:5173');
 });

@@ -14,7 +14,7 @@ export function GameScreen({ conn, toasts }: { conn: GameConnection; toasts: Ret
     <div className={`game ${host ? 'game--host' : 'game--player'}`} onPointerDown={unlockAudio}>
       <header className="topbar">
         <div className="topbar__title">
-          <span className="logo">Своя гра</span>
+          <span className="logo">Квізи від Дімона</span>
           <span className="topbar__pack">{s.packTitle}</span>
         </div>
         <div className="topbar__meta">

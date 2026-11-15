@@ -76,7 +76,7 @@ export function Home() {
   return (
     <div className="home">
       <header className="home-head">
-        <span className="logo logo--lg">Своя гра</span>
+        <span className="logo logo--lg">Квізи від Дімона</span>
         <p className="muted">Квіз для друзів онлайн: табло з темами, кнопка, кіт у мішку, аукціон і фінал.</p>
       </header>
 

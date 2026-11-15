@@ -1,4 +1,4 @@
-# Своя гра — online quiz for friends
+# Квізи від Дімона — online quiz for friends
 
 Multiplayer "Своя гра"-style quiz (board of themes × prices, buzzer, cat in the bag, auction, final with bets). Played remotely: each player opens the game in their own browser (usually alongside a Discord call); the host judges answers. UI language: Ukrainian.
 

@@ -117,7 +117,7 @@ function JoinForm({ code, packTitle, error, onJoin }: { code: string; packTitle?
         }}
       >
         <p className="eyebrow">Кімната {code}</p>
-        <h1>{packTitle ?? 'Своя гра'}</h1>
+        <h1>{packTitle ?? 'Квізи від Дімона'}</h1>
         <label className="field">
           <span>Ваше ім'я</span>
           <input value={name} onChange={(e) => setName(e.target.value)} maxLength={24} autoFocus placeholder="Як вас звати?" />
