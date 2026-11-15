@@ -3,7 +3,8 @@ import type { ClientMessage, GameView, PlayerView, Settings } from '../shared/pr
 import type { GameConnection } from './net';
 import { isMuted, playSfx, setMuted, unlockAudio } from './sound';
 import { Stage } from './stage';
-import { Avatar, Button, Countdown, CopyLink, findPlayer, formatScore, Panel, playerName, Toasts, useHotkey, useToasts } from './ui';
+import { Avatar, Button, Countdown, CopyLink, findPlayer, formatScore, Panel, playerName, Toasts, useAvatarPicker, useHotkey, useToasts } from './ui';
+import { storage } from './net';
 
 export function GameScreen({ conn, toasts }: { conn: GameConnection; toasts: ReturnType<typeof useToasts> }) {
   const s = conn.state!;
@@ -42,7 +43,7 @@ export function GameScreen({ conn, toasts }: { conn: GameConnection; toasts: Ret
       </main>
 
       <aside className="side">
-        <Scoreboard s={s} send={conn.send} />
+        <Scoreboard s={s} send={conn.send} onError={(m) => toasts.push(m, 'bad')} />
         {host && <HostPanel s={s} send={conn.send} serverNow={conn.serverNow} />}
       </aside>
 
@@ -72,20 +73,31 @@ function playerStatus(s: GameView, p: PlayerView): { text: string; tone?: 'accen
   return null;
 }
 
-function Scoreboard({ s, send }: { s: GameView; send: (m: ClientMessage) => void }) {
+function Scoreboard({ s, send, onError }: { s: GameView; send: (m: ClientMessage) => void; onError: (msg: string) => void }) {
   const host = s.role === 'host';
+  const picker = useAvatarPicker((url) => {
+    storage.set('playerAvatar', url);
+    send({ t: 'set_avatar', data: url });
+  }, onError);
   const [editing, setEditing] = useState<string | null>(null);
   const [menu, setMenu] = useState<string | null>(null);
   return (
     <Panel title="Гравці">
       {s.players.length === 0 && <p className="muted small">Ще ніхто не приєднався.</p>}
+      {picker.input}
       <ul className="scores">
         {s.players.map((p) => {
           const st = playerStatus(s, p);
           const answering = s.phase === 'question' && s.buzz?.answeringId === p.id;
           return (
             <li key={p.id} className={`score-row ${answering ? 'is-answering' : ''} ${p.connected ? '' : 'is-offline'} ${p.id === s.meId ? 'is-me' : ''}`}>
-              <Avatar p={p} size={34} />
+              {p.id === s.meId ? (
+                <button className="avatar-btn" onClick={picker.open} title="Змінити аватарку" aria-label="Змінити аватарку">
+                  <Avatar p={p} size={34} />
+                </button>
+              ) : (
+                <Avatar p={p} size={34} />
+              )}
               <div className="score-row__main">
                 <span className="score-row__name">
                   {p.name}

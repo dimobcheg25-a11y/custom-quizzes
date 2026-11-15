@@ -47,6 +47,12 @@ app.get('/api/rooms/:code', (req, res) => {
   res.json({ code: room.code, packTitle: room.game.pack.title, phase: room.game.phase, players: room.game.players.length });
 });
 
+app.get('/api/rooms/:code/avatars/:id', (req, res) => {
+  const av = rooms.get(req.params.code)?.game.avatarOf(req.params.id);
+  if (!av) return res.status(404).end();
+  res.set({ 'content-type': av.mime, 'cache-control': 'public, max-age=86400, immutable' }).send(av.data);
+});
+
 app.get('/packs/:id/*', (req, res) => {
   const rel = (req.params as Record<string, string>)[0];
   const abs = resolveMedia(req.params.id, rel);

@@ -32,6 +32,8 @@ export interface PlayerView {
   color: string;
   score: number;
   connected: boolean;
+  /** URL of the player's photo, if they uploaded one. */
+  avatar?: string;
 }
 
 export interface BoardView {
@@ -165,6 +167,7 @@ export type ClientMessage =
   | { t: 'final_remove'; theme: number }
   | { t: 'final_bet'; amount: number }
   | { t: 'final_answer'; text: string; draft?: boolean }
+  | { t: 'set_avatar'; data: string | null }
   // host
   | { t: 'start' }
   | { t: 'open_buzzer' }

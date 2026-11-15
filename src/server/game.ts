@@ -39,6 +39,7 @@ interface PlayerState {
   connected: boolean;
   /** False-start block, server epoch ms. */
   blockedUntil: number;
+  avatar?: { mime: string; data: Buffer; v: number };
 }
 
 interface CurrentQuestion {
@@ -91,6 +92,7 @@ interface FinalState {
 }
 
 const MAX_PLAYERS = 12;
+const MAX_AVATAR_BYTES = 40_000;
 
 export class Game {
   settings: Settings = { ...DEFAULT_SETTINGS };
@@ -153,6 +155,26 @@ export class Game {
     this.players.push(p);
     this.changed();
     return p.id;
+  }
+
+  /** A player sets (data URL) or clears (null) their photo. */
+  setAvatar(by: Actor, dataUrl: string | null) {
+    const p = 'playerId' in by ? this.get(by.playerId) : undefined;
+    if (!p) throw new GameError('Аватарку може змінити лише гравець');
+    if (dataUrl === null) {
+      p.avatar = undefined;
+    } else {
+      const m = typeof dataUrl === 'string' ? dataUrl.match(/^data:(image\/(?:jpeg|png|webp));base64,([A-Za-z0-9+/=]+)$/) : null;
+      if (!m) throw new GameError('Непідтримуваний формат картинки');
+      const data = Buffer.from(m[2], 'base64');
+      if (data.length > MAX_AVATAR_BYTES) throw new GameError('Картинка завелика');
+      p.avatar = { mime: m[1], data, v: (p.avatar?.v ?? 0) + 1 };
+    }
+    this.changed();
+  }
+
+  avatarOf(id: string) {
+    return this.get(id)?.avatar;
   }
 
   setConnected(id: string, connected: boolean) {
@@ -821,7 +843,14 @@ export class Game {
       phase: this.phase,
       hostConnected: this.hostConnected,
       settings: this.settings,
-      players: this.players.map((p) => ({ id: p.id, name: p.name, color: p.color, score: p.score, connected: p.connected })),
+      players: this.players.map((p) => ({
+        id: p.id,
+        name: p.name,
+        color: p.color,
+        score: p.score,
+        connected: p.connected,
+        avatar: p.avatar && `/api/rooms/${this.code}/avatars/${p.id}?v=${p.avatar.v}`,
+      })),
       chooserId: this.chooserId,
       board: round && {
         index: this.roundIndex,

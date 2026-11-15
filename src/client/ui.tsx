@@ -5,7 +5,7 @@ import { useTicker } from './net';
 export const findPlayer = (s: GameView, id?: string) => (id ? s.players.find((p) => p.id === id) : undefined);
 export const playerName = (s: GameView, id?: string) => findPlayer(s, id)?.name ?? '—';
 
-export function Avatar({ p, size = 32 }: { p: Pick<PlayerView, 'name' | 'color'>; size?: number }) {
+export function Avatar({ p, size = 32 }: { p: Pick<PlayerView, 'name' | 'color' | 'avatar'>; size?: number }) {
   const initials = p.name
     .split(/\s+/)
     .map((w) => w[0])
@@ -13,10 +13,51 @@ export function Avatar({ p, size = 32 }: { p: Pick<PlayerView, 'name' | 'color'>
     .slice(0, 2)
     .toUpperCase();
   return (
-    <span className="avatar" style={{ background: p.color, width: size, height: size, fontSize: size * 0.4 }} aria-hidden>
-      {initials}
+    <span
+      className={`avatar ${p.avatar ? 'avatar--photo' : ''}`}
+      style={{ background: p.color, width: size, height: size, fontSize: size * 0.4, ['--ring' as string]: p.color }}
+      aria-hidden
+    >
+      {p.avatar ? <img src={p.avatar} alt="" draggable={false} /> : initials}
     </span>
   );
+}
+
+/** Center-crops and shrinks a picked image to a small square JPEG data URL. */
+export async function imageToAvatar(file: File, size = 160): Promise<string> {
+  if (!file.type.startsWith('image/')) throw new Error('Це не картинка');
+  const bmp = await createImageBitmap(file);
+  const side = Math.min(bmp.width, bmp.height);
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d')!;
+  ctx.drawImage(bmp, (bmp.width - side) / 2, (bmp.height - side) / 2, side, side, 0, 0, size, size);
+  bmp.close();
+  return canvas.toDataURL('image/jpeg', 0.85);
+}
+
+/** Hidden file input + trigger; calls onPick with a ready avatar data URL. */
+export function useAvatarPicker(onPick: (dataUrl: string) => void, onError?: (msg: string) => void) {
+  const ref = useRef<HTMLInputElement>(null);
+  const input = (
+    <input
+      ref={ref}
+      type="file"
+      accept="image/*"
+      hidden
+      onChange={async (e) => {
+        const f = e.target.files?.[0];
+        e.target.value = '';
+        if (!f) return;
+        try {
+          onPick(await imageToAvatar(f));
+        } catch {
+          onError?.('Не вдалося відкрити цю картинку');
+        }
+      }}
+    />
+  );
+  return { input, open: () => ref.current?.click() };
 }
 
 export function formatScore(n: number) {

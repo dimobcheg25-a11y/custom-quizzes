@@ -404,3 +404,25 @@ describe('rounds and final', () => {
     expect(g.phase).toBe('board');
   });
 });
+
+describe('avatars', () => {
+  beforeEach(() => setup());
+  const png = 'data:image/png;base64,' + Buffer.from('fake-png').toString('base64');
+
+  it('stores a player photo and exposes a versioned URL', () => {
+    g.setAvatar(player(A), png);
+    const v1 = g.view('player', B).players.find((p) => p.id === A)!.avatar;
+    expect(v1).toBe(`/api/rooms/ABCD/avatars/${A}?v=1`);
+    expect(g.avatarOf(A)?.data.toString()).toBe('fake-png');
+    g.setAvatar(player(A), png);
+    expect(g.view('host').players.find((p) => p.id === A)!.avatar).toMatch(/v=2$/);
+    g.setAvatar(player(A), null);
+    expect(g.view('host').players.find((p) => p.id === A)!.avatar).toBeUndefined();
+  });
+
+  it('rejects non-images, oversized files and the host', () => {
+    expect(() => g.setAvatar(player(A), 'data:text/html;base64,PGI+')).toThrow(GameError);
+    expect(() => g.setAvatar(player(A), 'data:image/jpeg;base64,' + 'A'.repeat(60_000))).toThrow(GameError);
+    expect(() => g.setAvatar(HOST, png)).toThrow(GameError);
+  });
+});

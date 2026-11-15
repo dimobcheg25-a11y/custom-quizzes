@@ -1,4 +1,4 @@
-import { StrictMode, useEffect, useState } from 'react';
+import { StrictMode, useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import '@fontsource/golos-text/400.css';
 import '@fontsource/golos-text/500.css';
@@ -10,7 +10,7 @@ import { GameScreen } from './game-screen';
 import { Home } from './home';
 import { randomToken, storage, useGameConnection } from './net';
 import { playSfx, unlockAudio } from './sound';
-import { Button, useToasts } from './ui';
+import { Avatar, Button, useAvatarPicker, useToasts } from './ui';
 
 function App() {
   const path = location.pathname;
@@ -74,6 +74,18 @@ function PlayPage({ code }: { code: string }) {
   const { toasts, onEvent, onError } = useEventHandlers();
   const conn = useGameConnection(joined ? { code, role: 'player', token, name: joined.name, color: joined.color } : null, onEvent, onError);
 
+  // Send the saved photo once per connection if the server does not have it yet (new room, server restart).
+  const me = conn.state?.players.find((p) => p.id === conn.state?.meId);
+  const avatarSent = useRef(false);
+  useEffect(() => {
+    if (conn.status !== 'open') avatarSent.current = false;
+    if (!me || conn.status !== 'open' || me.avatar || avatarSent.current) return;
+    const saved = storage.get('playerAvatar');
+    if (!saved) return;
+    avatarSent.current = true;
+    conn.send({ t: 'set_avatar', data: saved });
+  }, [me, conn.status, conn.send]);
+
   useEffect(() => {
     if (conn.status === 'fatal' && joined) {
       setError(conn.fatalError);
@@ -107,6 +119,16 @@ function PlayPage({ code }: { code: string }) {
 function JoinForm({ code, packTitle, error, onJoin }: { code: string; packTitle?: string; error?: string; onJoin: (name: string, color: string) => void }) {
   const [name, setName] = useState(storage.get('playerName') ?? '');
   const [color, setColor] = useState(storage.get('playerColor') ?? PLAYER_COLORS[Math.floor(Math.random() * PLAYER_COLORS.length)]);
+  const [photo, setPhoto] = useState(storage.get('playerAvatar') || undefined);
+  const [photoError, setPhotoError] = useState<string>();
+  const picker = useAvatarPicker(
+    (url) => {
+      storage.set('playerAvatar', url);
+      setPhoto(url);
+      setPhotoError(undefined);
+    },
+    setPhotoError,
+  );
   return (
     <div className="page-center">
       <form
@@ -138,6 +160,32 @@ function JoinForm({ code, packTitle, error, onJoin }: { code: string; packTitle?
               />
             ))}
           </div>
+        </div>
+        <div className="field">
+          <span>Аватарка</span>
+          <div className="photo-pick">
+            <Avatar p={{ name: name.trim() || '?', color, avatar: photo }} size={56} />
+            <div className="photo-pick__actions">
+              <Button type="button" size="sm" onClick={picker.open}>
+                {photo ? 'Змінити фото' : 'Завантажити фото'}
+              </Button>
+              {photo && (
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  onClick={() => {
+                    storage.set('playerAvatar', '');
+                    setPhoto(undefined);
+                  }}
+                >
+                  Прибрати
+                </Button>
+              )}
+            </div>
+            {picker.input}
+          </div>
+          {photoError && <p className="form-error">{photoError}</p>}
         </div>
         {error && <p className="form-error">{error}</p>}
         <Button variant="primary" size="lg" type="submit" disabled={!name.trim()}>

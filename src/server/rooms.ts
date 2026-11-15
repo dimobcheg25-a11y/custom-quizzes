@@ -92,6 +92,7 @@ export class Room {
         case 'final_remove': return g.finalRemove(by, msg.theme);
         case 'final_bet': return g.finalBet(by, msg.amount);
         case 'final_answer': return g.finalAnswer(by, msg.text, !msg.draft);
+        case 'set_avatar': return g.setAvatar(by, msg.data);
         case 'start': return g.start(by);
         case 'open_buzzer': return g.openBuzzer(by);
         case 'judge': return g.judge(by, msg.correct);
