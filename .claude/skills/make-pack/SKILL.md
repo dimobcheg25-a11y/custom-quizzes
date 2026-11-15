@@ -18,7 +18,7 @@ Get from the user (ask only what is missing, in one message): topics or the gene
 
 ## 2. Write the questions
 
-Delegate the writing to a subagent on model `fable` (the user asked for Fable where it improves quality; see memory). Give it the brief, the schema file path and the rules below, and ask it to return the full `pack.json` plus a list of media to collect (what each file must show, and a source idea).
+Write the questions yourself in the main session. Use a subagent on model `fable` only if the user explicitly asks for it (see memory). Work from the brief, the schema file and the rules below; produce the full `pack.json` plus a list of media to collect (what each file must show, and a source idea).
 
 Rules for good questions:
 
