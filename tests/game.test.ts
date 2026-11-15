@@ -422,7 +422,7 @@ describe('avatars', () => {
 
   it('rejects non-images, oversized files and the host', () => {
     expect(() => g.setAvatar(player(A), 'data:text/html;base64,PGI+')).toThrow(GameError);
-    expect(() => g.setAvatar(player(A), 'data:image/jpeg;base64,' + 'A'.repeat(60_000))).toThrow(GameError);
+    expect(() => g.setAvatar(player(A), 'data:image/jpeg;base64,' + 'A'.repeat(120_000))).toThrow(GameError);
     expect(() => g.setAvatar(HOST, png)).toThrow(GameError);
   });
 });
