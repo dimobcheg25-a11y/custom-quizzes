@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { Game, HOST, player, type Scheduler, GameError } from '../src/server/game';
 import { PackSchema, type Pack } from '../src/shared/pack';
 
@@ -126,18 +126,43 @@ describe('lobby & players', () => {
 });
 
 describe('buzzer', () => {
-  it('auto-opens after reading time for text questions', () => {
+  it('auto-opens after the same host-set delay for every question', () => {
+    g.updateSettings(HOST, { openDelaySeconds: 5 });
     g.pick(player(A), 0, 0);
     expect(g.buzz!.stage).toBe('reading');
-    clock.advance(10_000);
+    clock.advance(4_900);
+    expect(g.buzz!.stage).toBe('reading');
+    clock.advance(100);
     expect(g.buzz!.stage).toBe('open');
   });
 
-  it('does not auto-open for video until media ends', () => {
+  it('video: buzzer opens after the delay while it plays; the timeout starts only when it ends', () => {
     g.pick(player(A), 1, 0);
-    clock.advance(30_000);
-    expect(g.buzz!.stage).toBe('reading');
+    clock.advance(3_000);
+    expect(g.buzz!.stage).toBe('open');
+    expect(g.buzz!.deadline).toBeUndefined();
+    clock.advance(60_000);
+    expect(g.phase).toBe('question'); // no timeout while media plays
     g.mediaEnded(HOST);
+    expect(g.buzz!.deadline).toBe(clock.t + 8_000);
+    clock.advance(8_000);
+    expect(g.phase).toBe('reveal');
+  });
+
+  it('video: a wrong answer mid-video reopens the buzzer, still without a countdown', () => {
+    g.pick(player(A), 1, 0);
+    clock.advance(3_000);
+    g.buzzIn(player(B), 100);
+    clock.advance(400);
+    expect(g.buzz!.answeringId).toBe(B);
+    g.judge(HOST, false);
+    expect(g.buzz!.stage).toBe('open');
+    expect(g.buzz!.deadline).toBeUndefined();
+  });
+
+  it('delay 0 opens the buzzer immediately', () => {
+    g.updateSettings(HOST, { openDelaySeconds: 0 });
+    g.pick(player(A), 0, 0);
     expect(g.buzz!.stage).toBe('open');
   });
 
@@ -424,5 +449,52 @@ describe('avatars', () => {
     expect(() => g.setAvatar(player(A), 'data:text/html;base64,PGI+')).toThrow(GameError);
     expect(() => g.setAvatar(player(A), 'data:image/jpeg;base64,' + 'A'.repeat(120_000))).toThrow(GameError);
     expect(() => g.setAvatar(HOST, png)).toThrow(GameError);
+  });
+});
+
+describe('random buzz mode', () => {
+  beforeEach(() => {
+    setup();
+    g.updateSettings(HOST, { buzzMode: 'random', randomWindowSeconds: 3 });
+  });
+  afterEach(() => vi.restoreAllMocks());
+
+  it('everyone who presses within the window joins a draw; the roulette lands on the drawn player', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.99); // last candidate
+    openNormal();
+    g.buzzIn(player(A), 900);
+    clock.advance(2_000);
+    g.buzzIn(player(C), 2_900);
+    expect(g.view('player', B).buzz!.pressed).toEqual([A, C]);
+    clock.advance(999);
+    g.buzzIn(player(B), 3_900); // still inside the window
+    clock.advance(1);
+    const b = g.view('player', A).buzz!;
+    expect(b.stage).toBe('roulette');
+    expect(b.roulette!.candidates).toEqual([A, C, B]);
+    expect(b.roulette!.winnerId).toBe(B);
+    g.buzzIn(player(A), 100); // presses during the draw are ignored
+    clock.advance(3_200);
+    expect(g.buzz!.stage).toBe('answering');
+    expect(g.buzz!.answeringId).toBe(B);
+  });
+
+  it('a press after the window does not join', () => {
+    openNormal();
+    g.buzzIn(player(A), 100);
+    clock.advance(3_000);
+    g.buzzIn(player(B), 3_100);
+    expect(g.buzz!.answeringId).toBe(A); // single candidate -> answers right away, no roulette
+    expect(g.buzz!.stage).toBe('answering');
+  });
+
+  it('the buzz timeout does not cut the window short', () => {
+    openNormal();
+    clock.advance(7_000);
+    g.buzzIn(player(A), 7_000);
+    clock.advance(1_500); // buzz timeout (8 s) passes here
+    g.buzzIn(player(B), 8_500);
+    clock.advance(1_500);
+    expect(g.buzz!.stage).toBe('roulette');
   });
 });

@@ -165,7 +165,7 @@ function PlayerBar({ s, send, serverNow }: { s: GameView; send: (m: ClientMessag
   const b = s.phase === 'question' ? s.buzz : undefined;
   const me = s.meId;
   const openedAt = useRef<number | null>(null);
-  const openKey = b?.stage === 'open' ? `${s.question?.themeIndex}-${s.question?.questionIndex}-${b.deadline}` : null;
+  const openKey = b?.stage === 'open' ? `${s.question?.themeIndex}-${s.question?.questionIndex}-${b.openId}` : null;
   const [pressedAt, setPressedAt] = useState<{ key: string; at: number } | null>(null);
   const [, rerender] = useState(0);
   const [falseStart, setFalseStart] = useState(false);
@@ -210,6 +210,11 @@ function PlayerBar({ s, send, serverNow }: { s: GameView; send: (m: ClientMessag
   let state: 'idle' | 'ready' | 'wait' | 'me' | 'bad' = 'idle';
   if (!b) {
     label = phaseHint(s);
+  } else if (b.stage === 'roulette') {
+    const inDraw = !!me && !!b.roulette?.candidates.includes(me);
+    state = 'wait';
+    label = 'Жеребкування…';
+    sub = inDraw ? 'Ви берете участь — чекайте на результат' : 'Обираємо, хто відповідатиме';
   } else if (b.stage === 'answering') {
     const who = findPlayer(s, b.answeringId);
     if (b.answeringId === me) {
@@ -233,6 +238,14 @@ function PlayerBar({ s, send, serverNow }: { s: GameView; send: (m: ClientMessag
     state = 'wait';
     label = 'Читаємо питання';
     sub = 'Не поспішайте: раннє натискання блокує кнопку';
+  } else if (b.stage === 'open' && b.pressed?.includes(me ?? '')) {
+    state = 'wait';
+    label = 'Ви в жеребкуванні';
+    sub = 'Інші ще можуть натиснути — потім обере випадок';
+  } else if (b.stage === 'open' && b.pressed && b.pressed.length > 0) {
+    state = 'ready';
+    label = 'Встигніть натиснути!';
+    sub = 'Хтось уже натиснув — натисніть, щоб потрапити в жеребкування';
   } else if (b.stage === 'open') {
     if (justPressed) {
       state = 'wait';
@@ -333,11 +346,23 @@ function HostPanel({ s, send, serverNow }: { s: GameView; send: (m: ClientMessag
           </div>
         )}
 
-        {s.phase === 'question' && b?.stage === 'open' && <p className="host-status">Кнопка відкрита — чекаємо натискань…</p>}
-        {s.phase === 'question' && b?.stage === 'reading' && b.autoOpenAt && <p className="host-status">Кнопка відкриється автоматично.</p>}
-        {s.phase === 'question' && b?.stage === 'reading' && !b.autoOpenAt && q?.media && q.media.kind !== 'image' && (
-          <p className="host-status">{s.settings.autoOpen ? 'Кнопка відкриється, коли медіа доіграє у вас.' : 'Відкрийте кнопку, коли будете готові.'}</p>
+        {s.phase === 'question' && b?.stage === 'open' && !b.pressed?.length && (
+          <p className="host-status">
+            Кнопка відкрита — чекаємо натискань…{!b.deadline && ' Таймер почнеться, коли медіа доіграє у вас.'}
+          </p>
         )}
+        {s.phase === 'question' && b?.stage === 'open' && !!b.pressed?.length && (
+          <p className="host-status">
+            Натиснули: {b.pressed.map((id) => playerName(s, id)).join(', ')} · ще <Countdown deadline={b.windowEndsAt} serverNow={serverNow} /> с
+          </p>
+        )}
+        {s.phase === 'question' && b?.stage === 'roulette' && <p className="host-status">Жеребкування…</p>}
+        {s.phase === 'question' && b?.stage === 'reading' && b.autoOpenAt && (
+          <p className="host-status">
+            Кнопка відкриється через <Countdown deadline={b.autoOpenAt} serverNow={serverNow} /> с.
+          </p>
+        )}
+        {s.phase === 'question' && b?.stage === 'reading' && !b.autoOpenAt && !b.solo && <p className="host-status">Відкрийте кнопку, коли будете готові.</p>}
 
         {s.phase === 'final_answer' && <p className="host-status">Гравці пишуть відповіді. Можна завершити раніше.</p>}
         {(s.phase === 'final_judging' || s.phase === 'final_answer') && s.final?.entries && (
@@ -445,8 +470,9 @@ function hostPrimary(s: GameView): { label: string; msg: ClientMessage; disabled
 }
 
 function SettingsPanel({ s, send }: { s: GameView; send: (m: ClientMessage) => void }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(s.phase === 'lobby');
   const set = (patch: Partial<Settings>) => send({ t: 'settings', settings: patch });
+  const random = s.settings.buzzMode === 'random';
   const num = (key: keyof Settings, label: string, unit: string, min: number, max: number, step = 1) => (
     <label className="setting">
       <span>{label}</span>
@@ -467,13 +493,31 @@ function SettingsPanel({ s, send }: { s: GameView; send: (m: ClientMessage) => v
     >
       {open && (
         <div className="settings">
+          <div className="setting setting--mode">
+            <span>Хто відповідає</span>
+            <div className="segmented" role="radiogroup" aria-label="Хто відповідає">
+              <button role="radio" aria-checked={!random} className={!random ? 'is-on' : ''} onClick={() => set({ buzzMode: 'fastest' })}>
+                Найшвидший
+              </button>
+              <button role="radio" aria-checked={random} className={random ? 'is-on' : ''} onClick={() => set({ buzzMode: 'random' })}>
+                Жеребкування
+              </button>
+            </div>
+            <p className="muted small setting__hint">
+              {random
+                ? 'Після першого натискання інші мають ще кілька секунд; серед усіх, хто натиснув, гра випадково обирає одного.'
+                : 'Відповідає той, хто натиснув найшвидше.'}
+            </p>
+          </div>
+          {random && num('randomWindowSeconds', 'Час, щоб теж натиснути', 'с', 0.5, 15, 0.5)}
           <label className="setting setting--check">
             <input type="checkbox" checked={s.settings.autoOpen} onChange={(e) => set({ autoOpen: e.target.checked })} />
             <span>Відкривати кнопку автоматично</span>
           </label>
+          {s.settings.autoOpen && num('openDelaySeconds', 'Затримка перед кнопкою', 'с', 0, 60, 0.5)}
           {num('buzzSeconds', 'Час на натискання', 'с', 2, 60)}
           {num('answerSeconds', 'Час на відповідь', 'с', 3, 120)}
-          {num('buzzWindowMs', 'Вікно анти-пінгу', 'мс', 0, 2000, 50)}
+          {!random && num('buzzWindowMs', 'Вікно анти-пінгу', 'мс', 0, 2000, 50)}
           {num('falseStartMs', 'Блок за фальстарт', 'мс', 0, 5000, 100)}
           {num('finalSeconds', 'Час у фіналі', 'с', 10, 300)}
         </div>

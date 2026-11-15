@@ -9,8 +9,13 @@ export interface Settings {
   buzzWindowMs: number;
   /** Pressing before the buzzer opens blocks the player for this long. 0 disables. */
   falseStartMs: number;
-  /** Open the buzzer automatically for text/image questions after a reading time based on text length. */
+  /** Open the buzzer automatically `openDelaySeconds` after the question appears (all question types). */
   autoOpen: boolean;
+  /** Same delay for every question before the buzzer opens. Audio/video keep playing after it opens. */
+  openDelaySeconds: number;
+  /** fastest: the quickest reaction answers. random: everyone who presses within `randomWindowSeconds` of the first press gets a fair random draw. */
+  buzzMode: 'fastest' | 'random';
+  randomWindowSeconds: number;
   /** Seconds to type an answer in the final round. */
   finalSeconds: number;
 }
@@ -21,6 +26,9 @@ export const DEFAULT_SETTINGS: Settings = {
   buzzWindowMs: 350,
   falseStartMs: 1000,
   autoOpen: true,
+  openDelaySeconds: 3,
+  buzzMode: 'fastest',
+  randomWindowSeconds: 3,
   finalSeconds: 60,
 };
 
@@ -78,10 +86,17 @@ export type Phase =
   | 'game_over';
 
 export interface BuzzView {
-  /** reading = buzzer closed, open = accepting buzzes, answering = someone answers */
-  stage: 'reading' | 'open' | 'answering';
-  /** Server epoch ms when the current stage ends (open: question closes; answering: answer time is up). */
+  /** reading = buzzer closed, open = accepting buzzes, roulette = random draw animation, answering = someone answers */
+  stage: 'reading' | 'open' | 'roulette' | 'answering';
+  /** Server epoch ms when the current stage ends (open: question closes; answering: answer time is up). Open without a deadline: media is still playing. */
   deadline?: number;
+  /** Changes every time the buzzer (re)opens. */
+  openId: number;
+  /** Random mode: players who pressed during the current window, and when the window closes. */
+  pressed?: string[];
+  windowEndsAt?: number;
+  /** Random mode: the draw. Clients animate a highlight over `candidates` that stops on `winnerId` at `endsAt`. */
+  roulette?: { candidates: string[]; winnerId: string; startedAt: number; endsAt: number };
   /** Server epoch ms when an auto-open happens during reading. */
   autoOpenAt?: number;
   readingSince?: number;

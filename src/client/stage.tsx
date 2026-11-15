@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ClientMessage, GameView, QuestionView } from '../shared/protocol';
 import { Avatar, Button, Countdown, findPlayer, formatScore, playerName, TimeBar } from './ui';
+import { useTicker } from './net';
+import { playSfx } from './sound';
 
 interface StageProps {
   s: GameView;
@@ -263,10 +265,31 @@ function QuestionStage({ s, send, serverNow }: StageProps) {
           {b.stage === 'reading' && b.autoOpenAt && (
             <TimeBar deadline={b.autoOpenAt} total={Math.max(1, b.autoOpenAt - (b.readingSince ?? s.serverNow))} serverNow={serverNow} tone="muted" />
           )}
-          {b.stage === 'open' && <TimeBar deadline={b.deadline} total={s.settings.buzzSeconds * 1000} serverNow={serverNow} />}
+          {b.stage === 'open' && b.windowEndsAt ? (
+            <TimeBar deadline={b.windowEndsAt} total={s.settings.randomWindowSeconds * 1000} serverNow={serverNow} />
+          ) : b.stage === 'open' && b.deadline ? (
+            <TimeBar deadline={b.deadline} total={s.settings.buzzSeconds * 1000} serverNow={serverNow} />
+          ) : null}
+          {b.stage === 'open' && !b.deadline && !b.windowEndsAt && <p className="question-hint">Кнопка відкрита — можна натискати, поки грає</p>}
           {b.stage === 'answering' && <TimeBar deadline={b.deadline} total={s.settings.answerSeconds * 1000} serverNow={serverNow} />}
+          {b.stage === 'open' && b.pressed && b.pressed.length > 0 && (
+            <div className="pressed">
+              <span className="pressed__label">
+                Натиснули · ще <Countdown deadline={b.windowEndsAt} serverNow={serverNow} /> с
+              </span>
+              {b.pressed.map((id) => {
+                const p = findPlayer(s, id);
+                return p ? (
+                  <span key={id} className="pressed__who">
+                    <Avatar p={p} size={40} /> {p.name}
+                  </span>
+                ) : null;
+              })}
+            </div>
+          )}
         </div>
       )}
+      {s.phase === 'question' && b?.stage === 'roulette' && b.roulette && <Roulette s={s} r={b.roulette} serverNow={serverNow} />}
       {s.phase === 'reveal' && <Reveal q={q} s={s} />}
     </div>
   );
@@ -282,10 +305,63 @@ function QuestionBody({ q, s, send }: { q: QuestionView; s: GameView; send: Stag
           url={q.media.url}
           kind={q.media.kind}
           onEnded={isHost(s) ? () => send({ t: 'media_ended' }) : undefined}
-          paused={(s.phase === 'reveal' && !!q.answerMedia) || s.phase === 'final_judging' || s.phase === 'final_reveal'}
+          paused={
+            (s.phase === 'reveal' && !!q.answerMedia) ||
+            s.phase === 'final_judging' ||
+            s.phase === 'final_reveal' ||
+            // Pause while someone answers (or is being drawn); it resumes from the same spot after a wrong answer.
+            (s.phase === 'question' && !!s.buzz && !s.buzz.solo && (s.buzz.stage === 'answering' || s.buzz.stage === 'roulette'))
+          }
         />
       )}
       {q.text && <p className={`question-text ${long ? 'is-long' : ''} ${q.media ? 'is-caption' : ''}`}>{q.text}</p>}
+    </div>
+  );
+}
+
+/** Ease-out schedule of highlight steps that ends on the winner. Same on every client (driven by server time). */
+function rouletteSteps(n: number, winnerIdx: number) {
+  let total = Math.max(14, n * 4);
+  while ((total - 1) % n !== winnerIdx) total++;
+  // step k happens at fraction t_k of the animation; f(t) = 1 - (1 - t)^3 is fast at first, slow at the end
+  return Array.from({ length: total }, (_, k) => 1 - Math.cbrt(1 - k / (total - 1)));
+}
+
+function Roulette({ s, r, serverNow }: { s: GameView; r: NonNullable<GameView['buzz']>['roulette'] & {}; serverNow: () => number }) {
+  useTicker(true, 30);
+  const n = r.candidates.length;
+  const winnerIdx = Math.max(0, r.candidates.indexOf(r.winnerId));
+  const steps = useRef(rouletteSteps(n, winnerIdx)).current;
+  const anim = (r.endsAt - r.startedAt) * 0.78; // land, then hold on the winner
+  const t = Math.min(1, Math.max(0, (serverNow() - r.startedAt) / anim));
+  let k = 0;
+  while (k + 1 < steps.length && steps[k + 1] <= t) k++;
+  const active = k % n;
+  const landed = k === steps.length - 1;
+
+  const last = useRef(-1);
+  useEffect(() => {
+    if (k !== last.current) {
+      last.current = k;
+      playSfx('tick');
+    }
+  }, [k]);
+
+  return (
+    <div className="roulette" role="status" aria-live="polite">
+      <p className="roulette__title">{landed ? `Відповідає ${playerName(s, r.winnerId)}!` : 'Хто відповідатиме?'}</p>
+      <div className="roulette__row">
+        {r.candidates.map((id, i) => {
+          const p = findPlayer(s, id);
+          if (!p) return null;
+          return (
+            <div key={id} className={`roulette__slot ${i === active ? 'is-active' : ''} ${landed && i === active ? 'is-winner' : ''}`} style={{ ['--ring' as string]: p.color }}>
+              <Avatar p={p} size={n > 4 ? 84 : 112} />
+              <span>{p.name}</span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -332,7 +408,7 @@ export function MediaView({
 
   useEffect(() => {
     const el = ref.current;
-    if (!el || paused) return;
+    if (!el || paused || el.ended) return;
     el.play().then(
       () => setBlocked(false),
       (e: DOMException) => setBlocked(e?.name === 'NotAllowedError'),

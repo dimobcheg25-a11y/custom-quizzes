@@ -53,7 +53,12 @@ interface CurrentQuestion {
 }
 
 interface BuzzState {
-  stage: 'reading' | 'open' | 'answering';
+  stage: 'reading' | 'open' | 'roulette' | 'answering';
+  openId: number;
+  /** Audio/video finished on the host (or there is none): the buzz timeout may run. */
+  mediaDone: boolean;
+  windowEndsAt?: number;
+  roulette?: { candidates: string[]; winnerId: string; startedAt: number; endsAt: number };
   deadline?: number;
   autoOpenAt?: number;
   readingSince?: number;
@@ -92,6 +97,7 @@ interface FinalState {
 }
 
 const MAX_PLAYERS = 12;
+export const ROULETTE_MS = 3200;
 const MAX_AVATAR_BYTES = 80_000;
 
 export class Game {
@@ -214,7 +220,7 @@ export class Game {
     }
     if (this.phase === 'question' && this.buzz) {
       this.buzz.candidates = this.buzz.candidates.filter((c) => c.id !== id);
-      if (this.buzz.answeringId === id) {
+      if (this.buzz.answeringId === id || this.buzz.roulette?.winnerId === id) {
         if (this.buzz.solo) return this.revealNow();
         return this.reopenOrReveal();
       }
@@ -292,6 +298,9 @@ export class Game {
       buzzWindowMs: num(s.buzzWindowMs, 0, 2000, c.buzzWindowMs),
       falseStartMs: num(s.falseStartMs, 0, 5000, c.falseStartMs),
       autoOpen: typeof s.autoOpen === 'boolean' ? s.autoOpen : c.autoOpen,
+      openDelaySeconds: num(s.openDelaySeconds, 0, 60, c.openDelaySeconds),
+      buzzMode: s.buzzMode === 'fastest' || s.buzzMode === 'random' ? s.buzzMode : c.buzzMode,
+      randomWindowSeconds: num(s.randomWindowSeconds, 0.5, 15, c.randomWindowSeconds),
       finalSeconds: num(s.finalSeconds, 10, 300, c.finalSeconds),
     };
     if (!this.settings.autoOpen && this.buzz?.autoOpenAt) {
@@ -448,7 +457,7 @@ export class Game {
     this.clearTimers();
     this.cat = this.phase === 'cat' ? this.cat : undefined;
     this.phase = 'question';
-    this.buzz = { stage: 'reading', lockedOut: new Set(), solo: !!soloId, candidates: [] };
+    this.buzz = { stage: 'reading', openId: 0, mediaDone: !this.hasPlayableMedia(), lockedOut: new Set(), solo: !!soloId, candidates: [] };
     for (const p of this.players) p.blockedUntil = 0;
 
     if (soloId) {
@@ -456,8 +465,12 @@ export class Game {
       this.buzz.answeringId = soloId;
       const extra = cur.q.media && cur.q.media.kind !== 'image' ? 15 : 0;
       this.buzz.deadline = this.sched.now() + (this.settings.answerSeconds + extra) * 1000;
-    } else if (this.settings.autoOpen && !this.hasPlayableMedia()) {
-      const ms = readingMs(cur.q.text, !!cur.q.media);
+    } else if (this.settings.autoOpen) {
+      const ms = Math.round(this.settings.openDelaySeconds * 1000);
+      if (ms <= 0) {
+        this.onEvent('question');
+        return this.openBuzzerNow();
+      }
       this.buzz.readingSince = this.sched.now();
       this.buzz.autoOpenAt = this.sched.now() + ms;
       this.timer('autoOpen', ms, () => this.openBuzzerNow());
@@ -478,16 +491,32 @@ export class Game {
     this.openBuzzerNow();
   }
 
-  /** Host's client reports that audio/video finished: open the buzzer if auto mode is on. */
+  /** Host's client reports that audio/video finished: from now on the open buzzer may time out. */
   mediaEnded(by: Actor) {
     this.requireHost(by);
-    if (this.settings.autoOpen && this.phase === 'question' && this.buzz?.stage === 'reading' && !this.buzz.solo) this.openBuzzerNow();
+    const b = this.buzz;
+    if (this.phase !== 'question' || !b || b.mediaDone) return;
+    b.mediaDone = true;
+    if (b.stage === 'open' && b.deadline === undefined) {
+      this.startBuzzTimeout();
+      this.changed();
+    }
   }
 
   replayMedia(by: Actor) {
     this.requireHost(by);
     if (!this.cur) return;
     this.mediaNonce++;
+    const b = this.buzz;
+    if (this.phase === 'question' && b && this.hasPlayableMedia()) {
+      b.mediaDone = false;
+      if (b.stage === 'open' && b.candidates.length === 0) {
+        const h = this.timers.get('buzzTimeout');
+        if (h !== undefined) this.sched.clear(h);
+        this.timers.delete('buzzTimeout');
+        b.deadline = undefined;
+      }
+    }
     this.changed();
   }
 
@@ -495,17 +524,30 @@ export class Game {
     const b = this.buzz!;
     this.clearTimers();
     b.stage = 'open';
+    b.openId++;
     b.autoOpenAt = undefined;
     b.answeringId = undefined;
+    b.roulette = undefined;
+    b.windowEndsAt = undefined;
     b.candidates = [];
     b.openedAt = this.sched.now();
-    b.deadline = b.openedAt + this.settings.buzzSeconds * 1000;
+    b.deadline = undefined;
+    // While audio/video is still playing the buzzer stays open without a countdown.
+    if (b.mediaDone) this.startBuzzTimeout();
+    this.changed();
+  }
+
+  private startBuzzTimeout() {
+    const b = this.buzz!;
+    b.deadline = this.sched.now() + this.settings.buzzSeconds * 1000;
     this.timer('buzzTimeout', this.settings.buzzSeconds * 1000, () => {
-      if (this.buzz?.candidates.length) return this.resolveBuzz();
+      if (this.buzz?.candidates.length) {
+        if (this.timers.has('randomWindow')) return; // let the press window finish
+        return this.resolveBuzz();
+      }
       this.onEvent('timeout');
       this.revealNow();
     });
-    this.changed();
   }
 
   buzzIn(by: Actor, reactionMs: number) {
@@ -540,6 +582,15 @@ export class Game {
     const elapsed = now - (b.openedAt ?? now);
     const reaction = Number.isFinite(reactionMs) ? Math.min(Math.max(0, reactionMs), elapsed) : elapsed;
     b.candidates.push({ id, reactionMs: reaction });
+
+    if (this.settings.buzzMode === 'random') {
+      if (b.candidates.length === 1) {
+        const ms = Math.round(this.settings.randomWindowSeconds * 1000);
+        b.windowEndsAt = now + ms;
+        this.timer('randomWindow', ms, () => this.resolveBuzz());
+      }
+      return this.changed();
+    }
     if (b.candidates.length === 1) {
       if (this.settings.buzzWindowMs <= 0) return this.resolveBuzz();
       this.timer('buzzWindow', this.settings.buzzWindowMs, () => this.resolveBuzz());
@@ -549,14 +600,34 @@ export class Game {
   private resolveBuzz() {
     const b = this.buzz!;
     if (b.stage !== 'open' || b.candidates.length === 0) return;
+    this.clearTimers();
+    if (this.settings.buzzMode === 'random') {
+      const ids = b.candidates.map((c) => c.id);
+      b.candidates = [];
+      b.windowEndsAt = undefined;
+      if (ids.length === 1) return this.beginAnswering(ids[0]);
+      const winnerId = ids[Math.floor(Math.random() * ids.length)];
+      const now = this.sched.now();
+      b.stage = 'roulette';
+      b.deadline = undefined;
+      b.roulette = { candidates: ids, winnerId, startedAt: now, endsAt: now + ROULETTE_MS };
+      this.timer('roulette', ROULETTE_MS, () => this.beginAnswering(winnerId));
+      return this.changed();
+    }
     // Fastest by client-measured reaction; ties go to the earliest arrival (stable sort).
     const winner = [...b.candidates].sort((x, y) => x.reactionMs - y.reactionMs)[0];
+    b.candidates = [];
+    this.beginAnswering(winner.id);
+  }
+
+  private beginAnswering(id: string) {
+    const b = this.buzz!;
     this.clearTimers();
     b.stage = 'answering';
-    b.answeringId = winner.id;
-    b.candidates = [];
+    b.answeringId = id;
+    b.roulette = undefined;
     b.deadline = this.sched.now() + this.settings.answerSeconds * 1000;
-    this.onEvent('buzz', winner.id);
+    this.onEvent('buzz', id);
     this.changed();
   }
 
@@ -603,6 +674,8 @@ export class Game {
     this.phase = 'question';
     this.buzz = {
       stage: 'answering',
+      openId: this.buzz?.openId ?? 0,
+      mediaDone: this.buzz?.mediaDone ?? true,
       answeringId: u.answeringId,
       lockedOut: u.lockedOut,
       solo: u.solo,
@@ -884,6 +957,10 @@ export class Game {
         answeringId: this.buzz.answeringId,
         lockedOut: [...this.buzz.lockedOut],
         solo: this.buzz.solo,
+        openId: this.buzz.openId,
+        pressed: this.buzz.stage === 'open' && this.settings.buzzMode === 'random' ? this.buzz.candidates.map((c) => c.id) : undefined,
+        windowEndsAt: this.buzz.windowEndsAt,
+        roulette: this.buzz.roulette,
       },
       cat: this.cat && { giverId: this.cat.giverId ?? '', theme: this.cat.theme, price: this.cat.price, receiverId: this.cat.receiverId },
       auction: this.auction && {
@@ -953,11 +1030,6 @@ export class Game {
   private changed() {
     this.onChange();
   }
-}
-
-export function readingMs(text: string, hasImage: boolean) {
-  const base = 1500 + text.length * 45 + (hasImage ? 1500 : 0);
-  return Math.min(10000, Math.max(2500, base));
 }
 
 export function mediaUrl(packId: string, file: string) {
